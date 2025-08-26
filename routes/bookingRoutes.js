@@ -1,20 +1,33 @@
 // backend/routes/bookingRoutes.js
 import express from "express";
-import { createBooking, getUserBookings, getAllBookings, cancelBooking } from "../controllers/bookingController.js";
-import { protect, admin } from "../middleware/authMiddleware.js";
+import Booking from "../models/Booking.js";
+import { verifyToken } from "../middleware/authMiddleware.js"; // ✅ fixed import
 
 const router = express.Router();
 
-// User creates a booking
-router.post("/", protect, createBooking);
+// POST /api/bookings
+router.post("/", verifyToken, async (req, res) => {
+  try {
+    const { movieId, showtime, seats, totalPrice } = req.body;
 
-// User gets their own bookings
-router.get("/mybookings", protect, getUserBookings);
+    if (!movieId || !showtime || !seats || seats.length === 0 || !totalPrice) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
 
-// Admin gets all bookings
-router.get("/", protect, admin, getAllBookings);
+    const booking = new Booking({
+      user: req.user._id, // set by verifyToken
+      movie: movieId,
+      showtime,
+      seats,
+      totalPrice,
+    });
 
-// Cancel a booking
-router.delete("/:id", protect, cancelBooking);
+    const savedBooking = await booking.save();
+    res.status(201).json(savedBooking);
+  } catch (error) {
+    console.error("Booking creation failed:", error);
+    res.status(500).json({ message: "Booking creation failed" });
+  }
+});
 
 export default router;
